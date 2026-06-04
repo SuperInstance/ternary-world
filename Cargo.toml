@@ -1,0 +1,6 @@
+[package]
+name = "ternary-world"
+version = "0.1.0"
+edition = "2021"
+license = "MIT"
+description = "World model for ternary simulations with grid physics, time ticks, and state snapshots"
