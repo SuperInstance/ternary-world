@@ -1,97 +1,92 @@
-# ternary-world: World model for ternary simulations
+# ternary-world
 
-A grid where each cell holds a ternary value (−1, 0, +1). Physics rules enforce conservation laws. Discrete time drives simulation ticks. An observer collects metrics. Snapshots capture full state.
+**World model for ternary simulations**
 
-## Why This Exists
+[![ternary](https://img.shields.io/badge/ecosystem-ternary-blue)](https://github.com/orgs/SuperInstance/repositories?q=ternary)
+[![tests](https://img.shields.io/badge/tests-20-green)]()
 
-Simulations need a world model that ties together agents, environments, and time. Using ternary values on the grid means every cell is directly compatible with the ternary math ecosystem — you can feed grid state into ternary-matrix, ternary-kalman, or ternary-entropy without conversion. Conservation physics ensures that changes to the grid don't violate invariants.
+## Overview
 
-## Core Concepts
+World model for ternary simulations.
 
-- **Trit** — A balanced ternary digit: Neg (−1), Zero (0), Pos (+1). The fundamental unit of grid state.
-- **WorldGrid** — A 2D grid of trits. Width × height. Supports get/set by (x, y) coordinates, counts of each trit type, and integer sum.
-- **WorldPhysics** — Conservation law enforcement. When a cell changes, a compensating change is applied to an adjacent cell to maintain a target sum (default: 0). If compensation is impossible, the change is rejected.
-- **WorldTime** — A simple tick counter. Advance, read, reset. No wall-clock dependency.
-- **WorldEvent** — Records agent-environment interactions: tick, agent ID, position, old/new values, description.
-- **WorldObserver** — Collects named metric series. Record (name, value) pairs and compute averages.
-- **WorldSnapshot** — Captures tick, grid, agent positions, and events for save/restore.
+A `WorldGrid` maps positions to ternary values (−1, 0, +1). `WorldPhysics`
+applies conservation laws. `WorldTime` drives discrete ticks. `WorldEvent`
+records agent-environment interactions. `WorldObserver` collects metrics.
+`WorldSnapshot` captures full state for serialization.
 
-## Quick Start
+## Architecture
+
+- **`WorldGrid`** — core data structure
+- **`WorldPhysics`** — core data structure
+- **`WorldTime`** — core data structure
+- **`WorldEvent`** — core data structure
+- **`WorldObserver`** — core data structure
+- **`WorldSnapshot`** — core data structure
+- **`Trit`** — state enumeration
+
+### Key Functions
+
+- `to_i8()`
+- `from_i8()`
+- `new()`
+- `index()`
+- `get()`
+- `set()`
+- `counts()`
+- `sum()`
+- `len()`
+- `is_empty()`
+- ... and 15 more
+
+## Why Ternary?
+
+The balanced ternary system {-1, 0, +1} (also known as Z₃) is the mathematically optimal discrete encoding:
+- **More expressive than binary**: three states capture positive, neutral, and negative
+- **Natural for decisions**: accept/reject/abstain, buy/hold/sell, agree/disagree/neutral
+- **Self-balancing**: the 0 state acts as a universal screen, preventing pathological lock-in
+- **Z₃ cyclic dynamics**: rock-paper-scissors is the only natural coordination mechanism
+
+## Stats
+
+| Metric | Value |
+|--------|-------|
+| Lines of Rust | 511 |
+| Test count | 20 |
+| Public types | 7 |
+| Public functions | 25 |
+
+## Ecosystem
+
+This crate is part of the **[SuperInstance Ternary Fleet](https://github.com/orgs/SuperInstance/repositories?q=ternary)**:
+
+- **[ternary-core](https://github.com/SuperInstance/ternary-core)** — shared traits and Z₃ arithmetic
+- **[ternary-grid](https://github.com/SuperInstance/ternary-grid)** — spatial grid with {-1, 0, +1} cells
+- **[ternary-graph](https://github.com/SuperInstance/ternary-graph)** — ternary-weighted graph algorithms
+- **[ternary-automata](https://github.com/SuperInstance/ternary-automata)** — three-state cellular automata
+- **[ternary-compiler](https://github.com/SuperInstance/ternary-compiler)** — expression compiler and optimizer
+
+200+ crates. 4,300+ tests. One pattern.
+
+## Research Context
+
+The ternary approach connects to several active research areas:
+- **Ternary Neural Networks** (TNNs): weights constrained to {-1, 0, +1} for efficient inference
+- **Huawei's ternary chip**: 7nm ternary silicon with 60% less power consumption
+- **Active inference**: free energy minimization naturally maps to ternary action selection
+- **Cyclic dominance**: RPS dynamics maintain biodiversity in spatial ecology
+- **Z₃ group theory**: the only algebraic group on three elements is cyclic addition mod 3
+
+## Usage
 
 ```toml
 [dependencies]
-ternary-world = "0.1"
+ternary-world = "0.1.0"
 ```
 
 ```rust
-use ternary_world::*;
-
-// Create a 4x4 grid with conservation physics
-let physics = WorldPhysics::new();
-let mut grid = WorldGrid::new(4, 4);
-
-// Apply a change — setting (1,0) to Pos requires compensation at (2,0)
-physics.apply(&mut grid, 1, 0, Trit::Pos);
-assert!(physics.is_conserved(&grid));
-assert_eq!(grid.get(2, 0), Some(Trit::Neg)); // compensation
-
-// Track time and metrics
-let mut time = WorldTime::new();
-let mut observer = WorldObserver::new();
-time.advance();
-observer.record("sum", grid.sum() as f64);
-assert_eq!(observer.avg("sum"), Some(0.0));
+use ternary_world;
 ```
-
-## API Overview
-
-| Type | Description |
-|------|-------------|
-| `Trit` | Enum: Neg, Zero, Pos. Converts to/from i8. |
-| `WorldGrid` | 2D grid of trits with get/set, counts, sum. |
-| `WorldPhysics` | Conservation enforcement with compensating changes. |
-| `WorldTime` | Discrete tick counter: advance, now, reset. |
-| `WorldEvent` | Agent-environment interaction record. |
-| `WorldObserver` | Named metric collection with averages. |
-| `WorldSnapshot` | Full state capture for serialization. |
-
-## How It Works
-
-The grid is a flat `Vec<Trit>` with index = `y * width + x`. Get/set do bounds checking. Counts and sum iterate the full vector.
-
-Conservation physics works by computing the delta (new value − old value) and checking if the resulting grid sum would match the target. If not, it tries to compensate at (x+1, y) by adjusting that cell's value by −delta. If the compensation value falls outside {-1, 0, +1}, the change is rejected entirely.
-
-This is a simplified conservation model — real physics would distribute compensation across neighbors. The single-cell approach is deterministic and fast.
-
-Time is a bare counter. The observer is a `HashMap<String, Vec<f64>>`. Snapshots clone everything.
-
-## Known Limitations
-
-- Conservation compensation only uses the cell to the right (x+1, y). If that cell is at the right edge or the compensation value exceeds ternary range, the change fails. This means not all grid configurations are reachable.
-- Grid size is fixed at creation. No dynamic resizing.
-- Observer metrics grow unbounded — no automatic pruning or windowing.
-- WorldSnapshot clones the entire grid, which is O(width × height). For large grids, this is expensive.
-- No multi-agent collision detection — the grid doesn't track agent positions directly (that's in the snapshot struct as a separate map).
-
-## Use Cases
-
-- **Cellular automata** — Each cell is ternary. Conservation physics creates interesting emergent behavior where patterns can't grow without compensating elsewhere.
-- **Resource simulation** — Neg = depleted, Zero = neutral, Pos = abundant. Conservation means total resources stay constant.
-- **Terrain generation** — Neg = water, Zero = plains, Pos = mountains. Physics ensures elevation is conserved.
-- **Opinion dynamics** — Grid cells represent population segments. Trits are against/neutral/for. Conservation keeps total opinion balanced.
-
-## Ecosystem Context
-
-`ternary-world` is the simulation layer. Agents from `ternary-agent` operate on the grid. Rooms from `ternary-room` can map to grid regions. Ensigns from `ternary-ensign` can provide specialized behavior for grid interactions. The trit type is compatible with all ternary math crates.
 
 ## License
 
 MIT
-
-## See Also
-- **ternary-room** — related
-- **ternary-ecosystem** — related
-- **ternary-cell** — related
-- **ternary-life** — related
-- **ternary-agent** — related
-
