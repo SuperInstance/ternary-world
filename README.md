@@ -87,3 +87,11 @@ Time is a bare counter. The observer is a `HashMap<String, Vec<f64>>`. Snapshots
 ## License
 
 MIT
+
+## See Also
+- **ternary-room** — related
+- **ternary-ecosystem** — related
+- **ternary-cell** — related
+- **ternary-life** — related
+- **ternary-agent** — related
+
